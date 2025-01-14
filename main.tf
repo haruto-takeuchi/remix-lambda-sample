@@ -8,9 +8,12 @@ terraform {
 
   required_version = ">= 1.2.0"
 }
-
+variable "aws_region" {
+  description = "The AWS region to deploy resources"
+  default     = "ap-northeast-1"
+}
 provider "aws" {
-  region  = "ap-northeast-1"
+  region  = var.aws_region
 }
 
 
@@ -41,11 +44,22 @@ data "archive_file" "lambda" {
 }
 # Lambda Function
 resource "aws_lambda_function" "remix-app" {
-    filename = data.archive_file.lambda.output_path
     function_name = "remix-app-lambda"
+    filename = data.archive_file.lambda.output_path
     source_code_hash = data.archive_file.lambda.output_base64sha256
     role = aws_iam_role.iam-for-lambda.arn
 
-    handler = "index.handler"
     runtime = "nodejs22.x"
+    handler = "index.handler"
+    layers = [ "arn:aws:lambda:${var.aws_region}:753240598075:layer:LambdaAdapterLayerX86:23" ]
+
+    environment {
+      variables = {
+        AWS_LAMBDA_EXEC_WRAPPER = "/opt/bootstrap"
+        NODE_ENV = "production"
+        PORT = "3000"
+      }
+    }
 }
+
+# TODO: CloudFront
